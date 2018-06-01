@@ -22,7 +22,7 @@ Finally, for plotting we will use [R](https://www.r-project.org).
 
 ## Data
 
-All input data and intermediate files for this tutorial can be found as a gzipped file [here](https://oc.gnz.mpg.de/owncloud/index.php/s/786PRKqWBYXm0YT). 
+All input data and intermediate files for this tutorial can be found as a gzipped file [here](https://oc.gnz.mpg.de/owncloud/index.php/s/786PRKqWBYXm0YT).
 
 For this lesson, we will use two trios from the publically available "69 genomes" data set published by [Complete Genomics](http://www.completegenomics.com/public-data/69-genomes/)
 
@@ -33,7 +33,7 @@ You will find the so called "MasterVarBeta" files for six individuals for chromo
 We will use the `masterVar`-files for each of the 6 samples, and use the `cgCaller.py` script in the `msmc-tools` repository to generate a VCF and a mask file for each individual from the `masterVar` file. For this, I suggest you write a little shell script that loops over all individuals:
 
     #!/usr/bin/env bash
-    
+
     MASTERVARDIR=/path/to/sequence_data
     OUTDIR=/path/to/output_files
     CHR=chr1
@@ -53,7 +53,7 @@ Copy the code above into a shell script, named for example `runCGcaller.sh`, adj
 When finished (should take 10-20 minutes for all 6 samples), you should now have one `*.mask.bed.gz` and one `*.vcf.gz` file for each individual.
 
 ## Combining samples
- 
+
 Some explanation on the generated files: The VCF file in each sample contains all sites at which at least one of the two chromosomes differs from the reference genome. Here is a sample:
 
     ##fileformat=VCFv4.1
@@ -87,19 +87,19 @@ There is one more mask that we need, which is the mappability mask. This mask de
 For generating the input files for MSMC, we will use a script called `generate_multihetsep.py`, which merges VCF and mask files together, and also performs simple trio-phasing. I will first show a command line that generates and MSMC input file for a single diploid sample `NA12878`:
 
     #!/usr/bin/env bash
-    
+
     INDIR=/path/to/VCF/and/mask/files
     OUTDIR=/path/to/output_files
     MAPDIR=/path/to/mappability/mask
     generate_multihetsep.py --chr 1 --mask $INDIR/NA12878.mask.bed.gz \
         --mask $MAPDIR/hs37d5_chr1.mask.bed $INDIR/NA12878.vcf.gz > $OUTDIR/NA12878.chr1.multihetsep.txt
 
-Here we have added the mask and VCF file of the NA12878 sample, and the mappability mask. I suggest you don't actually run this because we won't need this single-sample processing. 
+Here we have added the mask and VCF file of the NA12878 sample, and the mappability mask. I suggest you don't actually run this because we won't need this single-sample processing.
 
 To process these two trios, we will use the two offspring samples only to phase the four parental chromosomes. You can do this with the trio option:
 
     #!/usr/bin/env bash
-    
+
     INDIR=/path/to/VCF/and/mask/files
     OUTDIR=/path/to/output_files
     MAPDIR=/path/to/mappability/mask
@@ -126,7 +126,7 @@ The first lines of the resulting "multihetsep" file should look like this:
     1	757103	26	CCCCCCCT
     1	757734	84	TTTTTCTT
 
-This is the input file for MSMC. The first two columns denote chromosome and position of a segregating site within the samples. The fourth column contains the 8 alleles in the 8 parental haplotypes of the four parents we put in. When there are multiple patterns separated by a comma, it means that phasing information is ambiguous, so there are multiple possible phasings. This can happen if all three members of a trio are heterozygous, which makes it impossible to separate the paternal and maternal allele. 
+This is the input file for MSMC. The first two columns denote chromosome and position of a segregating site within the samples. The fourth column contains the 8 alleles in the 8 parental haplotypes of the four parents we put in. When there are multiple patterns separated by a comma, it means that phasing information is ambiguous, so there are multiple possible phasings. This can happen if all three members of a trio are heterozygous, which makes it impossible to separate the paternal and maternal allele.
 
 The third column is special and I get a lot of questions about that column, so let me explain it as clearly as possible: The third column contains the number of called sites _since the previous segregating site, including the current site_. So for example, in the first row above, the first segregating site is at position 68306, but not all 68306 sites up to that site were called homozygous reference, but only 44. This is very important for MSMC, because it would otherwise assume that there was a huge homozygous segment spanning from 1 through 68306. Note that the very definition given above also means that the third column is always greater or equal to 1 (which is actually enforced by MSMC)!
 
@@ -138,14 +138,14 @@ MSMC's purpose is to estimate coalescence rates between haplotypes through time.
 As a first step, we will use MSMC2 to estimate coalescence rates within the four African haplotypes alone, and within the four European haplotypes alone. Here is a short script running both these cases:
 
     #!/usr/bin/env bash
-    
+
     INPUTDIR=/path/to/multihetsep/files
     OUTDIR=/path/to/output/dir
-    
+
     msmc2 -t 6 -p 1*2+15*1+1*2 -o $OUTDIR/EUR.msmc2 -I 0,1,2,3 $INPUTDIR/EUR_AFR.chr1.multihetsep.txt
     msmc2 -t 6 -p 1*2+15*1+1*2 -o $OUTDIR/AFR.msmc2 -I 4,5,6,7 $INPUTDIR/EUR_AFR.chr1.multihetsep.txt
 
-Let's go through the parameters one by one. First, the `-t 6` option tells MSMC2 to use 6 CPUs. By default, it will use as many CPUs as there are on your computer. So if you are running this on a high performance compute cluster, it will use all the CPUs on that machine, which is rarely needed. 
+Let's go through the parameters one by one. First, the `-t 6` option tells MSMC2 to use 6 CPUs. By default, it will use as many CPUs as there are on your computer. So if you are running this on a high performance compute cluster, it will use all the CPUs on that machine, which is rarely needed.
 
 Note: It is not useful to use more CPUs than the number of chromosomes times the number of haplotype pairs, because that is the number of parallelised likelihood evaluations. Here I am running on one chromosome on four haplotypes, with six possible haplotype pairings, so that's why I used 6 CPUs.
 
@@ -162,11 +162,11 @@ On four processors, each of those runs will take about 15 minutes.
 Above we have run MSMC on each population individually. In order to better understand when and how the two ancestral populations separated, we will use MSMC to estimate the coalescence rate across populations. Here is a script for this run:
 
     #!/usr/bin/env bash
-    
+
     INPUTDIR=/path/to/multihetsep/files
     OUTDIR=/path/to/output/dir
-    
-    msmc2 -t 4 -I 0,1,4,5 -P 0,0,1,1 -s -p 1*2+15*1+1*2 -o $OUTDIR/AFR_EUR.msmc2 $INPUTDIR/EUR_AFR.chr1.multihetsep.txt
+
+    msmc2 -t 4 -I 0,1,4,5 -P 0,0,1,1 -s -p 1*2+15*1+1*2 -o $OUTDIR/EUR_AFR.msmc2 $INPUTDIR/EUR_AFR.chr1.multihetsep.txt
 
 OK, so here I am using 4 CPUs (`-t 4`), and I am running on the first two parental chromosomes in each subpopulation, so `-I 0,1,4,5`. Furthermore, I tell MSMC that the first and second two haplotypes chosen come from subpopulations 0 and 1, respectively: `-P 0,0,1,1`. If you wanted to analyse all eight haplotypes (will take consiberably longer), you would have had to say `-I 0,1,2,3,4,5,6,7 -P 0,0,0,0,1,1,1,1` (you could have omitted the `-I` flag in that case because it uses all chromosomes by default).
 
@@ -185,7 +185,7 @@ The result files from MSMC2 look like this:
     5	3.19418e-05	4.92247e-05	8982.41
     ...
 
-Here, the first column denotes a simple index of all time segments, the second and third indicate the scaled start and end time for each time interval. The last column contains the scaled coalescence rate estimate in that interval. 
+Here, the first column denotes a simple index of all time segments, the second and third indicate the scaled start and end time for each time interval. The last column contains the scaled coalescence rate estimate in that interval.
 
 Let's first plot the effective population sizes with the following R code:
 
@@ -208,9 +208,9 @@ You can see that both ancestral population had similar effective population size
 For the cross-population results, we would like to plot the coalescence rate across populations relative to the values within the populations. However, since we have obtained these three rates indepdenently, we have allowed MSMC2 to choose different time interval boundaries in each case, depending on the observed heterozygosity within and across populations. We therefore first have to use a script `combinedCrossCoal.py` available in the [msmc-tools repository](https://github.com/stschiff/msmc-tools), to combine the three rates:
 
     #!/usr/bin/env bash
-    
+
     DIR=/path/to/msmc/results
-    
+
     combineCrossCoal.py $DIR/EUR_AFR.msmc2.final.txt $DIR/EUR.msmc2.final.txt \
         $DIR/AFR.msmc2.final.txt > $DIR/EUR_AFR.combined.msmc2.final.txt
 
